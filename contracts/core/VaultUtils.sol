@@ -65,27 +65,32 @@ contract VaultUtils is IVaultUtils, Governable {
         uint256 marginFees = getFundingFee(_account, _collateralToken, _indexToken, _isLong, position.size, position.entryFundingRate);
         marginFees = marginFees.add(getPositionFee(_account, _collateralToken, _indexToken, _isLong, position.size));
 
+        // 亏损大于抵押品价值
         if (!hasProfit && position.collateral < delta) {
             if (_raise) { revert("Vault: losses exceed collateral"); }
             return (1, marginFees);
         }
 
+        // 亏损小于抵押品价值
         uint256 remainingCollateral = position.collateral;
         if (!hasProfit) {
             remainingCollateral = position.collateral.sub(delta);
         }
 
+        // 剩余的抵押品不足以支付关仓手续费
         if (remainingCollateral < marginFees) {
             if (_raise) { revert("Vault: fees exceed collateral"); }
             // cap the fees to the remainingCollateral
             return (1, remainingCollateral);
         }
 
+        // 不足以支付关仓手续费+清算手续费
         if (remainingCollateral < marginFees.add(_vault.liquidationFeeUsd())) {
             if (_raise) { revert("Vault: liquidation fees exceed collateral"); }
             return (1, marginFees);
         }
 
+        // 超杠杆了
         if (remainingCollateral.mul(_vault.maxLeverage()) < position.size.mul(BASIS_POINTS_DIVISOR)) {
             if (_raise) { revert("Vault: maxLeverage exceeded"); }
             return (2, marginFees);

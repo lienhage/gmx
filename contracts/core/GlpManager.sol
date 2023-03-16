@@ -152,6 +152,7 @@ contract GlpManager is ReentrancyGuard, Governable, IGlpManager {
             uint256 decimals = _vault.tokenDecimals(token);
 
             if (_vault.stableTokens(token)) {
+                // get stable tokens aum
                 aum = aum.add(poolAmount.mul(price).div(10 ** decimals));
             } else {
                 // add global short profit / loss
@@ -161,14 +162,18 @@ contract GlpManager is ReentrancyGuard, Governable, IGlpManager {
                     (uint256 delta, bool hasProfit) = getGlobalShortDelta(token, price, size);
                     if (!hasProfit) {
                         // add losses from shorts
+                        // losses: user losses, hasProfit: if users have profit
                         aum = aum.add(delta);
                     } else {
                         shortProfits = shortProfits.add(delta);
                     }
                 }
-
+                // baseAum = sum(poolAmount * Price)
+                // aum = baseAum + guranteedUSD - reserveAmount
+                // guaranteedUSD: USD value lent to users
                 aum = aum.add(_vault.guaranteedUsd(token));
 
+                // reserveAmount: Users position amount(borrowed+colateral)
                 uint256 reservedAmount = _vault.reservedAmounts(token);
                 aum = aum.add(poolAmount.sub(reservedAmount).mul(price).div(10 ** decimals));
             }
